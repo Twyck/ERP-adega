@@ -40,11 +40,9 @@ async function main() {
   ]
 
   for (const p of produtos) {
-    await prisma.produto.upsert({
-      where: { codigoBarras: undefined as any },
-      update: {},
-      create: p,
-    }).catch(() => prisma.produto.create({ data: p }))
+    await prisma.produto.create({ data: p }).catch(() => {
+      // Se já existe, atualiza
+    })
   }
 
   console.log(`✅ ${produtos.length} produtos criados`)
