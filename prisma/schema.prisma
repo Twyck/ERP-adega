@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  DONO
+  GERENTE
+  ESTOQUISTA
+  CAIXA
+}
+
+enum Prioridade {
+  URGENTE
+  HOJE
+  SEM_PRAZO
+}
+
+enum StatusTarefa {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+}
+
+enum TipoOcorrencia {
+  AMASSADO
+  VENCIDO
+  QUEBRADO
+  DANIFICADO
+  OUTRO
+}
+
+enum TipoPagamento {
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  PIX
+  OUTRO
+}
+
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
+  AJUSTE
+  DESCARTE
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  senha     String
+  perfil    Perfil   @default(CAIXA)
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  vendas          Venda[]
+  tarefasRecebidas Tarefa[] @relation("TarefaResponsavel")
+  tarefasCriadas  Tarefa[] @relation("TarefaCriador")
+  movimentacoes   MovimentacaoEstoque[]
+  ocorrencias     Ocorrencia[]
+  mensagensEnviadas Mensagem[] @relation("MensagemRemetente")
+  mensagensRecebidas Mensagem[] @relation("MensagemDestinatario")
+
+  @@map("usuarios")
+}
+
+model Produto {
+  id            String   @id @default(cuid())
+  nome          String
+  marca         String?
+  volume        String?
+  categoria     String?
+  codigoBarras  String?  @unique
+  precoVenda    Float
+  precoCusto    Float?
+  estoqueAtual  Int      @default(0)
+  estoqueMinimo Int      @default(5)
+  ativo         Boolean  @default(true)
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+
+  itensVenda      ItemVenda[]
+  lotes           Lote[]
+  movimentacoes   MovimentacaoEstoque[]
+  ocorrencias     Ocorrencia[]
+
+  @@map("produtos")
+}
+
+model Lote {
+  id           String    @id @default(cuid())
+  produtoId    String
+  numeroLote   String?
+  dataValidade DateTime?
+  quantidade   Int
+  criadoEm    DateTime   @default(now())
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+
+  @@map("lotes")
+}
+
+model MovimentacaoEstoque {
+  id          String           @id @default(cuid())
+  produtoId   String
+  usuarioId   String
+  tipo        TipoMovimentacao
+  quantidade  Int
+  observacao  String?
+  criadoEm  DateTime           @default(now())
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("movimentacoes_estoque")
+}
+
+model Venda {
+  id           String        @id @default(cuid())
+  usuarioId    String
+  tipoPagamento TipoPagamento
+  total        Float
+  desconto     Float         @default(0)
+  observacao   String?
+  criadoEm   DateTime        @default(now())
+
+  usuario Usuario     @relation(fields: [usuarioId], references: [id])
+  itens   ItemVenda[]
+
+  @@map("vendas")
+}
+
+model ItemVenda {
+  id         String  @id @default(cuid())
+  vendaId    String
+  produtoId  String
+  quantidade Int
+  precoUnitario Float
+  subtotal   Float
+
+  venda   Venda   @relation(fields: [vendaId], references: [id])
+  produto Produto @relation(fields: [produtoId], references: [id])
+
+  @@map("itens_venda")
+}
+
+model Tarefa {
+  id            String       @id @default(cuid())
+  titulo        String
+  descricao     String?
+  criadorId     String
+  responsavelId String
+  prioridade    Prioridade   @default(SEM_PRAZO)
+  status        StatusTarefa @default(PENDENTE)
+  prazo         DateTime?
+  fotoComprovacao String?
+  concluidaEm  DateTime?
+  criadoEm     DateTime      @default(now())
+
+  criador     Usuario @relation("TarefaCriador", fields: [criadorId], references: [id])
+  responsavel Usuario @relation("TarefaResponsavel", fields: [responsavelId], references: [id])
+
+  @@map("tarefas")
+}
+
+model Ocorrencia {
+  id         String         @id @default(cuid())
+  produtoId  String
+  usuarioId  String
+  tipo       TipoOcorrencia
+  quantidade Int
+  descricao  String?
+  foto       String?
+  criadoEm DateTime         @default(now())
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("ocorrencias")
+}
+
+model Mensagem {
+  id           String   @id @default(cuid())
+  remetenteId  String
+  destinatarioId String?
+  conteudo     String
+  lida         Boolean  @default(false)
+  criadoEm   DateTime   @default(now())
+
+  remetente    Usuario  @relation("MensagemRemetente", fields: [remetenteId], references: [id])
+  destinatario Usuario? @relation("MensagemDestinatario", fields: [destinatarioId], references: [id])
+
+  @@map("mensagens")
+}
